@@ -1,0 +1,6 @@
+autotune-app/songs
+autotune-app/output
+node_modules
+autotune-app/melodies
+device_server.log
+autotune-app/__pycache__

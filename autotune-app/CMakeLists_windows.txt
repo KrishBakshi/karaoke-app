@@ -1,0 +1,121 @@
+cmake_minimum_required(VERSION 3.10)
+project(AutotuneKaraoke VERSION 1.0.0)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Windows-specific settings
+if(WIN32)
+    # Set Windows-specific compiler flags
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3 /EHsc")
+    
+    # Set output directories
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    
+    # Windows-specific library names
+    set(PORTAUDIO_LIBRARY_NAMES portaudio)
+    set(SNDFILE_LIBRARY_NAMES sndfile)
+    set(AUBIO_LIBRARY_NAMES aubio)
+endif()
+
+# Find required packages
+find_package(PkgConfig REQUIRED)
+
+# Find PortAudio
+find_library(PORTAUDIO_LIBRARY NAMES ${PORTAUDIO_LIBRARY_NAMES})
+find_path(PORTAUDIO_INCLUDE_DIR NAMES portaudio.h)
+
+# Find libsndfile
+find_library(SNDFILE_LIBRARY NAMES ${SNDFILE_LIBRARY_NAMES})
+find_path(SNDFILE_INCLUDE_DIR NAMES sndfile.h)
+
+# Find Aubio
+find_library(AUBIO_LIBRARY NAMES ${AUBIO_LIBRARY_NAMES})
+find_path(AUBIO_INCLUDE_DIR NAMES aubio/aubio.h)
+
+# Find SDL2
+find_package(SDL2 REQUIRED)
+
+# Check if all required libraries are found
+if(NOT PORTAUDIO_LIBRARY OR NOT PORTAUDIO_INCLUDE_DIR)
+    message(FATAL_ERROR "PortAudio not found! Install with: vcpkg install portaudio")
+endif()
+
+if(NOT SNDFILE_LIBRARY OR NOT SNDFILE_INCLUDE_DIR)
+    message(FATAL_ERROR "libsndfile not found! Install with: vcpkg install libsndfile")
+endif()
+
+if(NOT AUBIO_LIBRARY OR NOT AUBIO_INCLUDE_DIR)
+    message(FATAL_ERROR "Aubio not found! Install with: vcpkg install aubio")
+endif()
+
+# Include directories
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${PORTAUDIO_INCLUDE_DIR})
+include_directories(${SNDFILE_INCLUDE_DIR})
+include_directories(${AUBIO_INCLUDE_DIR})
+
+# Create executable
+add_executable(autotune-karaoke
+    karaoke.cpp
+    simple_noise_suppression.cpp
+)
+
+# Link libraries
+target_link_libraries(autotune-karaoke
+    ${PORTAUDIO_LIBRARY}
+    ${SNDFILE_LIBRARY}
+    ${AUBIO_LIBRARY}
+    SDL2::SDL2
+)
+
+# Windows-specific compiler flags
+if(WIN32)
+    target_compile_options(autotune-karaoke PRIVATE
+        /W3
+        /EHsc
+        /O2
+    )
+    
+    # Windows-specific linker flags
+    target_link_options(autotune-karaoke PRIVATE
+        /SUBSYSTEM:CONSOLE
+    )
+else()
+    # Unix-specific compiler flags
+    target_compile_options(autotune-karaoke PRIVATE
+        -Wall
+        -Wextra
+        -O2
+    )
+endif()
+
+# Install target
+install(TARGETS autotune-karaoke
+    RUNTIME DESTINATION bin
+)
+
+# Copy data files
+install(FILES
+    melody_map.h
+    DESTINATION include
+)
+
+# Print configuration info
+message(STATUS "PortAudio: ${PORTAUDIO_LIBRARY}")
+message(STATUS "libsndfile: ${SNDFILE_LIBRARY}")
+message(STATUS "Aubio: ${AUBIO_LIBRARY}")
+message(STATUS "SDL2: ${SDL2_LIBRARIES}")
+
+# Windows-specific build instructions
+if(WIN32)
+    message(STATUS "")
+    message(STATUS "Windows Build Instructions:")
+    message(STATUS "1. Install vcpkg: git clone https://github.com/Microsoft/vcpkg.git")
+    message(STATUS "2. Install dependencies: vcpkg install portaudio libsndfile aubio sdl2")
+    message(STATUS "3. Set CMAKE_TOOLCHAIN_FILE: cmake -DCMAKE_TOOLCHAIN_FILE=[vcpkg_root]/scripts/buildsystems/vcpkg.cmake ..")
+    message(STATUS "4. Build: cmake --build . --config Release")
+endif()
