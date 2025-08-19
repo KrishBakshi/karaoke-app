@@ -1,4 +1,4 @@
 voice_volume=1.1
-instrument_volume=2
+instrument_volume=0.2
 autotune_strength=1
-pitch_shift=0
+pitch_shift=10

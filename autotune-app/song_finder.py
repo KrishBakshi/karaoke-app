@@ -67,7 +67,7 @@ def find_song_files(song_input):
     if separated_dir.exists():
         # Look for instrumental files
         for inst_file in separated_dir.iterdir():
-            if inst_file.is_file() and "instrumental" in inst_file.name.lower():
+            if inst_file.is_file() and "instrumental model_bs_roformer_ep_317_sdr_1" in inst_file.name.lower():
                 instrumental_file = inst_file
                 break
     
