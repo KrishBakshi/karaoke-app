@@ -5,3 +5,4 @@ autotune-app/melodies
 device_server.log
 autotune-app/__pycache__
 autotune-app/output_old
+autotune-app/voice_params.txt
