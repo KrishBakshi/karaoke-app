@@ -182,6 +182,16 @@ function runKaraoke(songName, ws) {
         message: 'C++ backend is now recording and processing audio'
       }));
     }
+    
+    // Check for recording completion
+    if (output.includes('Recording saved to') || output.includes('✅ Recording saved to')) {
+      console.log('💾 Recording completed and saved!');
+      ws.send(JSON.stringify({ 
+        type: 'backend_status', 
+        status: 'recording_completed',
+        message: 'Recording has been saved successfully'
+      }));
+    }
   });
 
   pythonProcess.stderr.on('data', (data) => {

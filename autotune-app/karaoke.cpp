@@ -13,7 +13,21 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <signal.h>
 #include "simple_noise_suppression.h"
+
+// Global variables for signal handling
+volatile bool g_quit_requested = false;
+std::string g_output_filename;
+std::vector<float>* g_recording_frames = nullptr;
+
+// Signal handler for graceful shutdown
+void signalHandler(int signum) {
+    if (signum == SIGINT || signum == SIGTERM) {
+        std::cout << "\n🛑 Signal received, shutting down gracefully..." << std::endl;
+        g_quit_requested = true;
+    }
+}
 
 // Function declarations
 std::vector<std::pair<float, float>> loadMelodyMap(const std::string& filename);
@@ -70,7 +84,9 @@ std::vector<std::pair<float, float>> loadMelodyMap(const std::string& filename) 
 // Function to generate unique filename
 std::string generateUniqueFilename(const std::string& song_name) {
     // Create output directory if it doesn't exist
-    std::filesystem::create_directories("output");
+    // Use absolute path to ensure it's created in the right location
+    std::string output_dir = "output";
+    std::filesystem::create_directories(output_dir);
     
     // Get current timestamp
     auto now = std::chrono::system_clock::now();
@@ -79,11 +95,12 @@ std::string generateUniqueFilename(const std::string& song_name) {
     
     // Format: output/songname_YYYYMMDD_HHMMSS_mmm.wav
     std::stringstream ss;
-    ss << "output/" << song_name << "_" 
+    ss << output_dir << "/" << song_name << "_" 
        << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S")
        << "_" << std::setfill('0') << std::setw(3) << ms.count()
        << ".wav";
     
+    std::cout << "📁 Will save recording to: " << ss.str() << std::endl;
     return ss.str();
 }
 
@@ -406,6 +423,18 @@ static int audioCallback(const void* inputBuffer, void* outputBuffer,
     }
     
     data->current_time += (float)FRAMES_PER_BUFFER / SAMPLE_RATE;
+    
+    // Record the mixed audio output for saving later
+    for (int i = 0; i < FRAMES_PER_BUFFER; i++) {
+        data->recording_frames.push_back(out[i]);
+    }
+    
+    // Debug: Print recording progress every 1000 frames
+    static int recording_debug_counter = 0;
+    if (recording_debug_counter++ % 1000 == 0) {
+        std::cout << "🎙️  Recording frames collected: " << data->recording_frames.size() 
+                  << " (" << (data->recording_frames.size() / (float)SAMPLE_RATE) << "s)" << std::endl;
+    }
     
     // Update history for plotting
     data->pitch_history.push_back(data->last_pitch);
@@ -1003,6 +1032,14 @@ int main(int argc, char* argv[]) {
     // Generate unique filename for this session
     std::string output_filename = generateUniqueFilename(clean_song_name);
     
+    // Set up global variables for signal handling
+    g_output_filename = output_filename;
+    g_recording_frames = &audio_data.recording_frames;
+    
+    // Set up signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+    
     std::cout << "🎤 C++ Karaoke with Recording started! Sing into your microphone..." << std::endl;
     std::cout << "🛑 Press Ctrl+C to stop" << std::endl;
     std::cout << "📊 Green line = Your pitch, Red line = Target melody" << std::endl;
@@ -1013,7 +1050,7 @@ int main(int argc, char* argv[]) {
     SDL_Event event;
     bool quit = false;
     
-    while (!quit) {
+    while (!quit && !g_quit_requested) {
         // Handle SDL events
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -1041,6 +1078,8 @@ int main(int argc, char* argv[]) {
     if (!audio_data.recording_frames.empty()) {
         std::cout << "💾 Saving recording..." << std::endl;
         saveRecording(audio_data.recording_frames, output_filename);
+    } else {
+        std::cout << "⚠️  No recording frames to save!" << std::endl;
     }
     
     // Cleanup
